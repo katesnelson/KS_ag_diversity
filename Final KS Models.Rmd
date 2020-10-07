@@ -1,0 +1,1065 @@
+---
+title: "Really final KS Models "
+author: "Kate Nelson"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, cache=T)
+```
+
+## Bayesian Models of Yield-Diversity Relationships in Kansas with Herbicide and Fertilizer Use
+
+In this document we run Bayesian models evaluating the relationship between crop yield of wheat, soy, and winter wheat and landscape diversity at a county-scale over the time period 2008-2018 for the state of Kansas. Models control for climate conditions including growing degree days (GDD), stress degree days (SDD), and total precipitation (TP) as well as for irrigation water volume used in each county-year. Control variables are allowed to have random-walk trends with yield to account for non-linear climate-yield and water-yield interaction dynamics. In addition a quadratic time trend is included to account for technological changes that occurred in the state between 2008 and 2018 and county spatial effects that account for factors such as soil type and quality that remain relatively constant over time are accounted for using a variety of techniques that do and do not account for spatial autocorrelation (fixed effects,  random effects plus autoregressive spatial random effect). Landscape diversity is evaluated using three common metrics (Shannon Diversity Index (SHDI), Simpson Diversity Index (SIDI), and Richness (RICH)) and was calculated for the area in each county's bounding box using USDA CropScape, 30 meter resolution, land use classifications for each year.
+
+The Yield variable was log transformed and all independent variables were standardized prior to model evaluation. Bayesian models employ moderately informative penalized complexity priors ("pc priors").
+
+This specific set of models test the influence of inclusion of herbicide and fertilizer use. this data draws from Kansas Farm Manager county-year datasets of herbicde and fertlizer expenses.
+
+
+## Setting things up for the tests {.tabset}
+
+```{r , results='hide'}
+library(pacman)
+p_load(tidyverse, sf, INLA, knitr, ggpubr, spdep, rgeos, zoo, viridis, biscale, corrplot, cowplot) 
+
+# raster
+
+
+wd<-getwd()
+source(paste0(wd,'/KS_yield_diversity_function_newcontrols.R'))
+
+
+```
+
+
+
+### Corn Yield Models
+
+
+
+#### Model with Non-linear Fertlizer and HErbicide and FE
+
+```{r }
+prep.data.norm_nc("corn_KS_final", "cornKS_0907", "corn", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+# 
+# #quick data check
+        #   r<-readRDS(paste0(wd,"/Data/cornKS_0907norm_nc.rds"))
+        #  # head(r)
+        #  hist(r$fert)
+        #  hist(r$herb)
+        #  hist(r$volume)
+        # length(unique(r$GDD))
+
+d='cornKS_0907norm_nc'
+name='corn_yield_SIDI_fe_normncnl0907'
+
+f1<-build.formula.fe.nlnc('LSM_SIDI_ALL', 'corn', controls = "All", priors = c("pc"))
+m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results(name, data=d, crop="corn", diagnostics = TRUE)
+plot.smootheffect(name, var="fert")
+plot.smootheffect(name, var="herb")
+plot.smootheffect(name, var="LSM_SIDI_ALL")
+plot.smootheffect(name, var="volume")
+plot.smootheffect(name, var="TP")
+plot.smootheffect(name, var="GDD")
+plot.smootheffect(name, var="SDD")
+
+# plot.spatialeffect("corn_yield_SIDI_fe_nc", data="cornKS_0810nc", crop="corn", type ="FE", scale="CNTY",projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### Model with Non-linear Fertlizer and Herbicide and BYM
+
+```{r }
+
+#gdal problem with epsg integers right now so replace projection=102003 with proj4string
+# prep.data.std.nlnc("corn_KS_final", "cornKS_0810", "corn", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+d='cornKS_0907norm_nc'
+name='corn_yield_SIDI_bym_normncnl0907'
+
+f1<-build.formula.bym.nlnc('LSM_SIDI_ALL', 'corn', controls = "All", priors = c("pc"))
+m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results(name, data=d, crop="corn", diagnostics = TRUE)
+plot.smootheffect(name, var="fert")
+plot.smootheffect(name, var="herb")
+plot.smootheffect(name, var="LSM_SIDI_ALL")
+plot.smootheffect(name, var="volume")
+plot.smootheffect(name, var="TP")
+plot.smootheffect(name, var="GDD")
+plot.smootheffect(name, var="SDD")
+
+# plot.spatialeffect("corn_yield_SIDI_fe_nc", data="cornKS_0810nc", crop="corn", type ="FE", scale="CNTY",projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+
+
+### Corn Change in Yield Models
+
+#### Average Diversity and FE
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_dyield_aveSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ f1<-build.formula.fe.change1.nlnc(independent = 'aveSIDI2yr', crop='corn', controls = controls, priors = c("pc"))
+ m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="corn", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="aveSIDI2yr")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="corn", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### Average Diversity and BYM
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_dyield_aveSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+  f1<-build.formula.bym.change1.nlnc(independent = 'aveSIDI2yr', crop='corn', controls = controls, priors = c("pc"))
+  m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="corn", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="aveSIDI2yr")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="corn", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs') #something is clearly not right here
+
+```
+
+#### Change in Diversity FE
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_dyield_dSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ f1<-build.formula.fe.change1.nlnc(independent = 'dSIDI', crop='corn', controls = controls, priors = c("pc"))
+ m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+ model.results.change(name, data=d, crop="corn", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="dSIDI")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="corn", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### Change in Diversity BYM
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_dyield_dSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ f1<-build.formula.bym.change1.nlnc(independent = 'dSIDI', crop='corn', controls = controls, priors = c("pc"))
+ m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="corn", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="dSIDI")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="corn", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+### Corn Variation in Yield Models
+
+#### Average Diversity and CV of Climate Vars and FE
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_covyield_aveSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.fe.cov1.nlnc(independent='aveSIDI3yr', 'corn', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="corn", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="corn", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+```
+
+#### Average Diversity and CV of Climate Vars and BYM
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_covyield_aveSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.bym.cov1.nlnc(independent='aveSIDI3yr', 'corn', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="corn", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="corn", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+
+```
+
+#### CV Diversity and CV of Climate Vars and FE
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_covyield_covSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.fe.cov1.nlnc(independent='covSIDI', 'corn', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="corn", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="corn", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### CV Diversity and CV of Climate Vars and BYM
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_covyield_covSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.bym.cov1.nlnc(independent='covSIDI', 'corn', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="corn", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="corn", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+
+```
+
+
+#### Average and CV of Diversity and Average and CV of Climate Vars and FE
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_covyield_aveSIDIcovSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb','aveVol3yr','aveTP3yr','aveGDD3yr','aveSDD3yr','avefert3yr','aveherb3yr')
+# 
+# f1<-build.formula.fe.cov4.nlnc(independent=c('aveSIDI3yr', 'covSIDI'), 'corn', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="corn", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+        plot.smootheffect(name, var="avefert3yr")
+        plot.smootheffect(name, var="aveherb3yr")
+        plot.smootheffect(name, var="aveVol3yr")
+        plot.smootheffect(name, var="aveTP3yr")
+        plot.smootheffect(name, var="aveGDD3yr")
+        plot.smootheffect(name, var="aveSDD3yr")
+# 
+# plot.spatialeffect(name, data=d, crop="corn", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+```
+
+#### Average and CV of Diversity and Average and CV of Climate Vars and BYM
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_covyield_aveSIDIcovSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb','aveVol3yr','aveTP3yr','aveGDD3yr','aveSDD3yr','avefert3yr','aveherb3yr')
+
+
+# f1<-build.formula.bym.cov4.nlnc(independent=c('aveSIDI3yr', 'covSIDI'), 'corn', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="corn", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+        plot.smootheffect(name, var="avefert3yr")
+        plot.smootheffect(name, var="aveherb3yr")
+        plot.smootheffect(name, var="aveVol3yr")
+        plot.smootheffect(name, var="aveTP3yr")
+        plot.smootheffect(name, var="aveGDD3yr")
+        plot.smootheffect(name, var="aveSDD3yr")
+
+# plot.spatialeffect(name, data=d, crop="corn", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+```
+
+
+
+### Soy Models
+
+#### Model with Non-linear Fertlizer and HErbicide and FE
+
+```{r }
+prep.data.norm_nc("soy_KS_final", "soyKS_0907", "soy", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+# 
+# #quick data check
+        #   r<-readRDS(paste0(wd,"/Data/soyKS_0907norm_nc.rds"))
+        #  # head(r)
+        #  hist(r$fert)
+        #  hist(r$herb)
+        #  hist(r$volume)
+        # length(unique(r$GDD))
+
+d='soyKS_0907norm_nc'
+name='soy_yield_SIDI_fe_normncnl0907'
+
+f1<-build.formula.fe.nlnc('LSM_SIDI_ALL', 'soy', controls = "All", priors = c("pc"))
+m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results(name, data=d, crop="soy", diagnostics = TRUE)
+plot.smootheffect(name, var="fert")
+plot.smootheffect(name, var="herb")
+plot.smootheffect(name, var="LSM_SIDI_ALL")
+plot.smootheffect(name, var="volume")
+plot.smootheffect(name, var="TP")
+plot.smootheffect(name, var="GDD")
+plot.smootheffect(name, var="SDD")
+
+# plot.spatialeffect("soy_yield_SIDI_fe_nc", data="soyKS_0810nc", crop="soy", type ="FE", scale="CNTY",projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### Model with Non-linear Fertlizer and Herbicide and BYM
+
+```{r }
+
+#gdal problem with epsg integers right now so replace projection=102003 with proj4string
+# prep.data.std.nlnc("soy_KS_final", "soyKS_0810", "soy", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+d='soyKS_0907norm_nc'
+name='soy_yield_SIDI_bym_normncnl0907'
+
+f1<-build.formula.bym.nlnc('LSM_SIDI_ALL', 'soy', controls = "All", priors = c("pc"))
+m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results(name, data=d, crop="soy", diagnostics = TRUE)
+plot.smootheffect(name, var="fert")
+plot.smootheffect(name, var="herb")
+plot.smootheffect(name, var="LSM_SIDI_ALL")
+plot.smootheffect(name, var="volume")
+plot.smootheffect(name, var="TP")
+plot.smootheffect(name, var="GDD")
+plot.smootheffect(name, var="SDD")
+
+# plot.spatialeffect("soy_yield_SIDI_fe_nc", data="soyKS_0810nc", crop="soy", type ="FE", scale="CNTY",projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+
+
+### soy Change in Yield Models
+
+#### Average Diversity and FE
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_dyield_aveSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ f1<-build.formula.fe.change1.nlnc(independent = 'aveSIDI2yr', crop='soy', controls = controls, priors = c("pc"))
+ m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="soy", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="aveSIDI2yr")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="soy", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### Average Diversity and BYM
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_dyield_aveSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+  f1<-build.formula.bym.change1.nlnc(independent = 'aveSIDI2yr', crop='soy', controls = controls, priors = c("pc"))
+  m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="soy", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="aveSIDI2yr")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="soy", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs') #something is clearly not right here
+
+```
+
+#### Change in Diversity FE
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_dyield_dSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ f1<-build.formula.fe.change1.nlnc(independent = 'dSIDI', crop='soy', controls = controls, priors = c("pc"))
+ m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+ model.results.change(name, data=d, crop="soy", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="dSIDI")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="soy", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### Change in Diversity BYM
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_dyield_dSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ f1<-build.formula.bym.change1.nlnc(independent = 'dSIDI', crop='soy', controls = controls, priors = c("pc"))
+ m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="soy", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="dSIDI")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="soy", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+### soy Variation in Yield Models
+
+#### Average Diversity and CV of Climate Vars and FE
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_covyield_aveSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.fe.cov1.nlnc(independent='aveSIDI3yr', 'soy', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="soy", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="soy", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+```
+
+#### Average Diversity and CV of Climate Vars and BYM
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_covyield_aveSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.bym.cov1.nlnc(independent='aveSIDI3yr', 'soy', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="soy", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="soy", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+
+```
+
+#### CV Diversity and CV of Climate Vars and FE
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_covyield_covSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.fe.cov1.nlnc(independent='covSIDI', 'soy', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="soy", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="soy", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### CV Diversity and CV of Climate Vars and BYM
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_covyield_covSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.bym.cov1.nlnc(independent='covSIDI', 'soy', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="soy", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="soy", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+
+```
+
+
+#### Average and CV of Diversity and Average and CV of Climate Vars and FE
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_covyield_aveSIDIcovSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb','aveVol3yr','aveTP3yr','aveGDD3yr','aveSDD3yr','avefert3yr','aveherb3yr')
+
+# f1<-build.formula.fe.cov4.nlnc(independent=c('aveSIDI3yr', 'covSIDI'), 'soy', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="soy", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+        plot.smootheffect(name, var="avefert3yr")
+        plot.smootheffect(name, var="aveherb3yr")
+        plot.smootheffect(name, var="aveVol3yr")
+        plot.smootheffect(name, var="aveTP3yr")
+        plot.smootheffect(name, var="aveGDD3yr")
+        plot.smootheffect(name, var="aveSDD3yr")
+# 
+# plot.spatialeffect(name, data=d, crop="soy", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+```
+
+#### Average and CV of Diversity and Average and CV of Climate Vars and BYM
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_covyield_aveSIDIcovSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb','aveVol3yr','aveTP3yr','aveGDD3yr','aveSDD3yr','avefert3yr','aveherb3yr')
+
+
+# f1<-build.formula.bym.cov4.nlnc(independent=c('aveSIDI3yr', 'covSIDI'), 'soy', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="soy", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+        plot.smootheffect(name, var="avefert3yr")
+        plot.smootheffect(name, var="aveherb3yr")
+        plot.smootheffect(name, var="aveVol3yr")
+        plot.smootheffect(name, var="aveTP3yr")
+        plot.smootheffect(name, var="aveGDD3yr")
+        plot.smootheffect(name, var="aveSDD3yr")
+
+# plot.spatialeffect(name, data=d, crop="soy", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+```
+
+
+
+
+### Wheat Models
+
+
+#### Model with Non-linear Fertlizer and HErbicide and FE
+
+```{r }
+prep.data.norm_nc("wheat_KS_final", "wheatKS_0907", "wheat", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+# 
+# #quick data check
+        #   r<-readRDS(paste0(wd,"/Data/wheatKS_0907norm_nc.rds"))
+        #  # head(r)
+        #  hist(r$fert)
+        #  hist(r$herb)
+        #  hist(r$volume)
+        # length(unique(r$GDD))
+
+d='wheatKS_0907norm_nc'
+name='wheat_yield_SIDI_fe_normncnl0907'
+
+f1<-build.formula.fe.nlnc('LSM_SIDI_ALL', 'wheat', controls = "All", priors = c("pc"))
+m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results(name, data=d, crop="wheat", diagnostics = TRUE)
+plot.smootheffect(name, var="fert")
+plot.smootheffect(name, var="herb")
+plot.smootheffect(name, var="LSM_SIDI_ALL")
+plot.smootheffect(name, var="volume")
+plot.smootheffect(name, var="TP")
+plot.smootheffect(name, var="GDD")
+plot.smootheffect(name, var="SDD")
+
+# plot.spatialeffect("wheat_yield_SIDI_fe_nc", data="wheatKS_0810nc", crop="wheat", type ="FE", scale="CNTY",projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### Model with Non-linear Fertlizer and Herbicide and BYM
+
+```{r }
+
+#gdal problem with epsg integers right now so replace projection=102003 with proj4string
+# prep.data.std.nlnc("wheat_KS_final", "wheatKS_0810", "wheat", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+d='wheatKS_0907norm_nc'
+name='wheat_yield_SIDI_bym_normncnl0907'
+
+f1<-build.formula.bym.nlnc('LSM_SIDI_ALL', 'wheat', controls = "All", priors = c("pc"))
+m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results(name, data=d, crop="wheat", diagnostics = TRUE)
+plot.smootheffect(name, var="fert")
+plot.smootheffect(name, var="herb")
+plot.smootheffect(name, var="LSM_SIDI_ALL")
+plot.smootheffect(name, var="volume")
+plot.smootheffect(name, var="TP")
+plot.smootheffect(name, var="GDD")
+plot.smootheffect(name, var="SDD")
+
+# plot.spatialeffect("wheat_yield_SIDI_fe_nc", data="wheatKS_0810nc", crop="wheat", type ="FE", scale="CNTY",projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+
+
+### Wheat Change in Yield Models
+
+#### Average Diversity and FE
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_dyield_aveSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ f1<-build.formula.fe.change1.nlnc(independent = 'aveSIDI2yr', crop='wheat', controls = controls, priors = c("pc"))
+ m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="wheat", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="aveSIDI2yr")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="wheat", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### Average Diversity and BYM
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_dyield_aveSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+  f1<-build.formula.bym.change1.nlnc(independent = 'aveSIDI2yr', crop='wheat', controls = controls, priors = c("pc"))
+  m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="wheat", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="aveSIDI2yr")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="wheat", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs') #something is clearly not right here
+
+```
+
+#### Change in Diversity FE
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_dyield_dSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ f1<-build.formula.fe.change1.nlnc(independent = 'dSIDI', crop='wheat', controls = controls, priors = c("pc"))
+ m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+ model.results.change(name, data=d, crop="wheat", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="dSIDI")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="wheat", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### Change in Diversity BYM
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_dyield_dSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ f1<-build.formula.bym.change1.nlnc(independent = 'dSIDI', crop='wheat', controls = controls, priors = c("pc"))
+ m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="wheat", diagnostics = TRUE)
+ 
+        plot.smootheffect(name, var="dSIDI")
+        plot.smootheffect(name, var="dfert")
+        plot.smootheffect(name, var="dherb")
+        plot.smootheffect(name, var="dVol")
+        plot.smootheffect(name, var="dTP")
+        plot.smootheffect(name, var="dGDD")
+        plot.smootheffect(name, var="dSDD")
+
+# plot.spatialeffect(name, data=d, crop="wheat", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+### Wheat Variation in Yield Models
+
+#### Average Diversity and CV of Climate Vars and FE
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_covyield_aveSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.fe.cov1.nlnc(independent='aveSIDI3yr', 'wheat', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="wheat", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="wheat", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+```
+
+#### Average Diversity and CV of Climate Vars and BYM
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_covyield_aveSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.bym.cov1.nlnc(independent='aveSIDI3yr', 'wheat', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="wheat", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="wheat", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+
+```
+
+#### CV Diversity and CV of Climate Vars and FE
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_covyield_covSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.fe.cov1.nlnc(independent='covSIDI', 'wheat', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="wheat", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="wheat", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+```
+
+#### CV Diversity and CV of Climate Vars and BYM
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_covyield_covSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+f1<-build.formula.bym.cov1.nlnc(independent='covSIDI', 'wheat', controls = controls, priors = c("pc"))
+m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="wheat", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+
+# plot.spatialeffect(name, data=d, crop="wheat", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+
+```
+
+
+#### Average and CV of Diversity and Average and CV of Climate Vars and FE
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_covyield_aveSIDIcovSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb','aveVol3yr','aveTP3yr','aveGDD3yr','aveSDD3yr','avefert3yr','aveherb3yr')
+
+# f1<-build.formula.fe.cov4.nlnc(independent=c('aveSIDI3yr', 'covSIDI'), 'wheat', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="wheat", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+        plot.smootheffect(name, var="avefert3yr")
+        plot.smootheffect(name, var="aveherb3yr")
+        plot.smootheffect(name, var="aveVol3yr")
+        plot.smootheffect(name, var="aveTP3yr")
+        plot.smootheffect(name, var="aveGDD3yr")
+        plot.smootheffect(name, var="aveSDD3yr")
+# 
+# plot.spatialeffect(name, data=d, crop="wheat", type ="FE", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+```
+
+#### Average and CV of Diversity and Average and CV of Climate Vars and BYM
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_covyield_aveSIDIcovSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb','aveVol3yr','aveTP3yr','aveGDD3yr','aveSDD3yr','avefert3yr','aveherb3yr')
+
+
+# f1<-build.formula.bym.cov4.nlnc(independent=c('aveSIDI3yr', 'covSIDI'), 'wheat', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="wheat", diagnostics = TRUE)
+
+        plot.smootheffect(name, var="aveSIDI3yr")
+        plot.smootheffect(name, var="covSIDI")
+        plot.smootheffect(name, var="covfert")
+        plot.smootheffect(name, var="covherb")
+        plot.smootheffect(name, var="covVol")
+        plot.smootheffect(name, var="covTP")
+        plot.smootheffect(name, var="covGDD")
+        plot.smootheffect(name, var="covSDD")
+        plot.smootheffect(name, var="avefert3yr")
+        plot.smootheffect(name, var="aveherb3yr")
+        plot.smootheffect(name, var="aveVol3yr")
+        plot.smootheffect(name, var="aveTP3yr")
+        plot.smootheffect(name, var="aveGDD3yr")
+        plot.smootheffect(name, var="aveSDD3yr")
+
+# plot.spatialeffect(name, data=d, crop="wheat", type ="BYM", scale="CNTY", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+
+
+```
+
+
+
+
+

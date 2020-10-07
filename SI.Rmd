@@ -1,0 +1,900 @@
+---
+title: "Supporting Information"
+author: "Kate Nelson"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache=T)
+```
+
+## Bayesian Models of Crop Production-Diversity Relationships in Kansas
+
+In this document we run Bayesian models evaluating the relationships between crop production of wheat, soy, and winter wheat and landscape diversity at a county-scale over the time period 2008-2018 for the state of Kansas. Crop production is evaulated in terms of yield, change in yield, and stability of yield to represent key indicators of production resilience. Models control for climate conditions including growing degree days (GDD), stress degree days (SDD), and total precipitation (TP), as well as for irrigation water volume used in each county-year. Critically, the models also control  for chemical inputs of fertilizer and herbicide/insecticide using county-annual expenditure data. Control variables are allowed to have random-walk trends  to account for non-linear climate-yield, water-yield, and input-yield interaction dynamics. In addition a quadratic time trend is included to account for technological changes that occurred in the state between 2008 and 2018 and county spatial effects that account for factors such as soil type and quality that remain relatively constant over time are accounted for using a variety of techniques that do and do not account for spatial autocorrelation (fixed effects,  random effects plus autoregressive spatial random effect). Landscape diversity is evaluated using the Simpson Diversity Index (SIDI),  and was calculated for the area in each county's bounding box using USDA CropScape, 30 meter resolution, land use classifications for each year.
+
+Yields were log transformed, water volumes were log transformed and normalized to the total agricultural area in a county, and fertilizer and herbicide/insecticide was normalized to the total agricultural area in a county. All independent variables were standardized prior to model evaluation. Bayesian models employ moderately informative penalized complexity priors ("pc priors") (Simpson et al., 2014).
+
+*Yield models* take the generic form:
+
+$$Yield  =  Diversity + Water Volume + Fertilizer + Herbicide.Insectide + TP +  GDD +  SDD + Quadratic~Time~Trend + County Effects $$
+
+*Change in Yield models* take the generic form:
+
+$$\Delta Yield  =  Diversity + \Delta Volume + \Delta TP + \Delta GDD + \Delta SDD + Quadratic~Time~Trend + County Effects $$
+*Stability of Yield models* take the generic form:
+
+
+Models that account for spatial autocorrelation using a county spatial effect use a Besag-York-Mollie (BYM) specification that accounts for both county unstructured iid random effects and conditionally autoregressive spatially structured random effects (using a neighborhood adjacency matrix). In these models we use the BYM2 specification which eases prior specification and works well with pc priors which tend to shrink toward simpler models (e.g. models with no spatial autocorrelation).
+
+
+D. P. Simpson, H. Rue, T. G. Martins, A. Riebler, S. H. Sørbye, Penalising model component complexity: A principled, practical approach to constructing priors. ArXiv14034630 Stat (2014).
+
+## Setting things up for the tests {.tabset}
+
+```{r , results='hide'}
+library(pacman)
+p_load(tidyverse, sf, INLA, knitr, ggpubr, spdep, rgeos, zoo, viridis, biscale, corrplot, cowplot) 
+
+
+wd<-getwd()
+source(paste0(wd,'/SI_functions.R'))
+
+
+```
+
+
+
+### Yield Models
+
+
+
+#### Corn with County Fixed Effects
+
+
+```{r}
+# prep.data.norm_nc("corn_KS_final", "cornKS_0907", "corn", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+# 
+# #quick data check
+        #   r<-readRDS(paste0(wd,"/Data/cornKS_0907norm_nc.rds"))
+        #  # head(r)
+        #  hist(r$fert)
+        #  hist(r$herb)
+        #  hist(r$volume)
+        # length(unique(r$GDD))
+
+d='cornKS_0907norm_nc'
+name='corn_yield_SIDI_fe_normncnl0907'
+
+# f1<-build.formula.fe.nlnc('LSM_SIDI_ALL', 'corn', controls = "All", priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results(name, data=d, crop="corn", diagnostics = TRUE)
+
+
+```
+
+#### Soy with County Fixed Effects
+
+```{r }
+# prep.data.norm_nc("soy_KS_final", "soyKS_0907", "soy", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+# 
+# #quick data check
+        #   r<-readRDS(paste0(wd,"/Data/soyKS_0907norm_nc.rds"))
+        #  # head(r)
+        #  hist(r$fert)
+        #  hist(r$herb)
+        #  hist(r$volume)
+        # length(unique(r$GDD))
+
+d='soyKS_0907norm_nc'
+name='soy_yield_SIDI_fe_normncnl0907'
+
+# f1<-build.formula.fe.nlnc('LSM_SIDI_ALL', 'soy', controls = "All", priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results(name, data=d, crop="soy", diagnostics = TRUE)
+
+
+```
+
+#### Wheat with County Fixed Effects
+
+```{r }
+# prep.data.norm_nc("wheat_KS_final", "wheatKS_0907", "wheat", projection='+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m no_defs')
+# 
+# #quick data check
+        #   r<-readRDS(paste0(wd,"/Data/wheatKS_0907norm_nc.rds"))
+        #  # head(r)
+        #  hist(r$fert)
+        #  hist(r$herb)
+        #  hist(r$volume)
+        # length(unique(r$GDD))
+
+d='wheatKS_0907norm_nc'
+name='wheat_yield_SIDI_fe_normncnl0907'
+
+# f1<-build.formula.fe.nlnc('LSM_SIDI_ALL', 'wheat', controls = "All", priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results(name, data=d, crop="wheat", diagnostics = TRUE)
+
+```
+
+#### Summary Plot of Non-linear Effects (by crop) for County Fixed Effects Models
+
+```{r, fig.height=6, fig.width=5 }
+
+name="yield_SIDI_fe_normncnl0907"
+
+file_end <- "_SIDI_fe_normncnl0907" #one of "fe_normncnl0907", "bym_normncnl0907"
+dependent <- "yield" # one of c("yield" ,"dyield","covyield")
+vars <- c("LSM_SIDI_ALL", "volume","fert", "herb","TP","GDD","SDD")
+crops <- c("corn","soy","wheat")
+y.min <- c(-0.5,-0.5,-0.4,-0.4,-0.4,-0.4,-1)
+y.max <- c(0.5,0.5,0.4,0.4,0.4,0.4,1)
+x.min<- -3
+x.max <-3
+
+p1<-plot.lm.summ(file_end, dependent, vars, crops, y.min, y.max, x.min, x.max)
+
+#build a 3x2 plot by combining the output for all composition metrics and crops
+    figure1<-ggarrange(p1[[1]] , p1[[2]] + theme( axis.title.y = element_blank()), 
+                       p1[[3]] , p1[[4]] + theme( axis.title.y = element_blank()),
+                       p1[[5]] , p1[[6]] + theme( axis.title.y = element_blank()),
+                       p1[[7]] ,
+                       ncol=2,nrow=4, common.legend = TRUE, legend = "bottom", 
+                       labels="auto",  hjust = c(-3, -1,-3,-1,-3,-3, -3), vjust =c(8,8,8,8,8,8,8), font.label = (size=10)) 
+    figure1
+    #ggsave(paste0(name, ".png"), figure1, width = 5, height = 6)
+ 
+```
+
+#### Corn with BYM Spatial Effects
+
+```{r }
+
+
+d='cornKS_0907norm_nc'
+name='corn_yield_SIDI_bym_normncnl0907'
+
+# f1<-build.formula.bym.nlnc('LSM_SIDI_ALL', 'corn', controls = "All", priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results(name, data=d, crop="corn", diagnostics = TRUE)
+
+
+```
+
+
+#### Soy with BYM Spatial Effects
+
+```{r }
+
+
+d='soyKS_0907norm_nc'
+name='soy_yield_SIDI_bym_normncnl0907'
+
+# f1<-build.formula.bym.nlnc('LSM_SIDI_ALL', 'soy', controls = "All", priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results(name, data=d, crop="soy", diagnostics = TRUE)
+
+```
+
+#### Wheat with BYM Spatial Effects
+
+```{r }
+
+
+d='wheatKS_0907norm_nc'
+name='wheat_yield_SIDI_bym_normncnl0907'
+
+# f1<-build.formula.bym.nlnc('LSM_SIDI_ALL', 'wheat', controls = "All", priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results(name, data=d, crop="wheat", diagnostics = TRUE)
+
+```
+
+#### Summary Plot of Non-linear Effects (by crop) for BYM Spatial Effects Models
+
+```{r, fig.height=6, fig.width=5 }
+
+name="yield_SIDI_bym_normncnl0907"
+
+file_end <- "_SIDI_bym_normncnl0907" #one of "fe_normncnl0907", "bym_normncnl0907"
+dependent <- "yield" # one of c("yield" ,"dyield","covyield")
+vars <- c("LSM_SIDI_ALL", "volume","fert", "herb","TP","GDD","SDD")
+crops <- c("corn","soy","wheat")
+y.min <- c(-0.4,-0.4,-0.4,-0.4,-0.4,-0.4,-1)
+y.max <- c(0.4,0.4,0.4,0.4,0.4,0.4,1)
+x.min<- -3
+x.max <-3
+
+p1<-plot.lm.summ(file_end, dependent, vars, crops, y.min, y.max, x.min, x.max)
+
+#build a 3x2 plot by combining the output for all composition metrics and crops
+    figure1<-ggarrange(p1[[1]] , p1[[2]] + theme( axis.title.y = element_blank()), 
+                       p1[[3]] , p1[[4]] + theme( axis.title.y = element_blank()),
+                       p1[[5]] , p1[[6]] + theme( axis.title.y = element_blank()),
+                       p1[[7]] ,
+                       ncol=2,nrow=4, common.legend = TRUE, legend = "bottom", 
+                       labels="auto",  hjust = c(-3, -1,-3,-1,-3,-3, -3), vjust =c(8,8,8,8,8,8,8), font.label = (size=10)) 
+    figure1
+    
+    #ggsave(paste0(name, ".png"), figure1, width = 5, height = 6)
+ 
+```
+
+
+
+
+### Change in Yield Models with Average Diversity
+
+
+#### Corn Average Diversity model with County Fixed Effects
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_dyield_aveSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ # f1<-build.formula.fe.change1.nlnc(independent = 'aveSIDI2yr', crop='corn', controls = controls, priors = c("pc"))
+ # m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="corn", diagnostics = TRUE)
+ 
+       
+```
+
+
+
+#### Soy Average Diversity model with County Fixed Effects
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_dyield_aveSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ # f1<-build.formula.fe.change1.nlnc(independent = 'aveSIDI2yr', crop='soy', controls = controls, priors = c("pc"))
+ # m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="soy", diagnostics = TRUE)
+ 
+
+
+```
+
+#### Wheat Average Diversity model with County Fixed Effects
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_dyield_aveSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ # f1<-build.formula.fe.change1.nlnc(independent = 'aveSIDI2yr', crop='wheat', controls = controls, priors = c("pc"))
+ # m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+ # 
+ model.results.change(name, data=d, crop="wheat", diagnostics = TRUE)
+ 
+
+
+```
+
+#### Summary Plot of Non-linear Effects (by crop) for County Fixed Effects Models
+
+```{r, fig.height=6, fig.width=5 }
+
+name="dyield_aveSIDI_fe0907"
+
+file_end <- "_aveSIDI_fe0907" #one of "_SIDI_fe_normncnl0907", "_SIDI_bym_normncnl0907", etc...
+dependent <- "dyield" # one of c("yield" ,"dyield","covyield")
+vars <- c("aveSIDI2yr", "dVol","dfert", "dherb","dTP","dGDD","dSDD")
+crops <- c("corn","soy","wheat")
+y.min <- c(-0.5,-0.5,-0.3,-0.3,-0.5,-0.5,-1)
+y.max <- c(0.5,0.5,0.3,0.3,0.5,0.5,1)
+x.min<- -3
+x.max <-3
+
+p1<-plot.lm.summ(file_end, dependent, vars, crops, y.min, y.max, x.min, x.max)
+
+#build a 3x2 plot by combining the output for all composition metrics and crops
+    figure1<-ggarrange(p1[[1]] , p1[[2]] + theme( axis.title.y = element_blank()), 
+                       p1[[3]] , p1[[4]] + theme( axis.title.y = element_blank()),
+                       p1[[5]] , p1[[6]] + theme( axis.title.y = element_blank()),
+                       p1[[7]] ,
+                       ncol=2,nrow=4, common.legend = TRUE, legend = "bottom", 
+                       labels="auto",  hjust = c(-3, -1,-3,-1,-3,-3, -3), vjust =c(8,8,8,8,8,8,8), font.label = (size=10)) 
+    figure1
+    
+    #ggsave(paste0(name, ".png"), figure1, width = 5, height = 6)
+ 
+```
+
+#### Corn Average Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_dyield_aveSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+  # f1<-build.formula.bym.change1.nlnc(independent = 'aveSIDI2yr', crop='corn', controls = controls, priors = c("pc"))
+  # m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="corn", diagnostics = TRUE)
+ 
+       
+```
+
+#### Soy Average Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_dyield_aveSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+  # f1<-build.formula.bym.change1.nlnc(independent = 'aveSIDI2yr', crop='soy', controls = controls, priors = c("pc"))
+  # m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="soy", diagnostics = TRUE)
+ 
+        
+
+```
+
+#### Wheat Average Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_dyield_aveSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+  # f1<-build.formula.bym.change1.nlnc(independent = 'aveSIDI2yr', crop='wheat', controls = controls, priors = c("pc"))
+  # m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+  # 
+ model.results.change(name, data=d, crop="wheat", diagnostics = TRUE)
+ 
+       
+```
+
+#### Summary Plot of Non-linear Effects (by crop) for BYM Spatial Effects Models
+
+```{r, fig.height=6, fig.width=5 }
+
+name="dyield_aveSIDI_bym0907"
+
+file_end <- "_aveSIDI_bym0907" #one of "fe_normncnl0907", "bym_normncnl0907"
+dependent <- "dyield" # one of c("yield" ,"dyield","covyield")
+vars <- c("aveSIDI2yr", "dVol","dfert", "dherb","dTP","dGDD","dSDD")
+crops <- c("corn","soy","wheat")
+y.min <- c(-0.3,-0.3,-0.3,-0.3,-0.5,-0.5,-1)
+y.max <- c(0.3,0.3,0.3,0.3,0.5,0.5,1)
+x.min<- -3
+x.max <-3
+
+p1<-plot.lm.summ(file_end, dependent, vars, crops, y.min, y.max, x.min, x.max)
+
+#build a 3x2 plot by combining the output for all composition metrics and crops
+    figure1<-ggarrange(p1[[1]] , p1[[2]] + theme( axis.title.y = element_blank()), 
+                       p1[[3]] , p1[[4]] + theme( axis.title.y = element_blank()),
+                       p1[[5]] , p1[[6]] + theme( axis.title.y = element_blank()),
+                       p1[[7]] ,
+                       ncol=2,nrow=4, common.legend = TRUE, legend = "bottom", 
+                       labels="auto",  hjust = c(-3, -1,-3,-1,-3,-3, -3), vjust =c(8,8,8,8,8,8,8), font.label = (size=10)) 
+    figure1
+    
+    #ggsave(paste0(name, ".png"), figure1, width = 5, height = 6)
+ 
+```
+
+### Change in Yield Models with Change in Diversity
+
+
+
+#### Corn Change in Diversity model with County Fixed Effects
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_dyield_dSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+# 
+#  f1<-build.formula.fe.change1.nlnc(independent = 'dSIDI', crop='corn', controls = controls, priors = c("pc"))
+#  m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+ model.results.change(name, data=d, crop="corn", diagnostics = TRUE)
+ 
+        
+```
+
+#### Soy Change in Diversity model with County Fixed Effects
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_dyield_dSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ # f1<-build.formula.fe.change1.nlnc(independent = 'dSIDI', crop='soy', controls = controls, priors = c("pc"))
+ # m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+ model.results.change(name, data=d, crop="soy", diagnostics = TRUE)
+ 
+
+
+```
+
+#### Wheat Change in Diversity model with County Fixed Effects
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_dyield_dSIDI_fe0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ # f1<-build.formula.fe.change1.nlnc(independent = 'dSIDI', crop='wheat', controls = controls, priors = c("pc"))
+ # m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+ model.results.change(name, data=d, crop="wheat", diagnostics = TRUE)
+ 
+     
+```
+
+
+#### Summary Plot of Non-linear Effects (by crop) for County Fixed Effects Models
+
+```{r, fig.height=6, fig.width=5 }
+
+name="dyield_dSIDI_fe0907"
+
+file_end <- "_dSIDI_fe0907" #one of "fe_normncnl0907", "bym_normncnl0907"
+dependent <- "dyield" # one of c("yield" ,"dyield","covyield")
+vars <- c("dSIDI", "dVol","dfert", "dherb","dTP","dGDD","dSDD")
+crops <- c("corn","soy","wheat")
+y.min <- c(-0.4,-0.4,-0.3,-0.3,-0.5,-0.5,-1)
+y.max <- c(0.4,0.4,0.3,0.3,0.5,0.5,1)
+x.min<- -3
+x.max <-3
+
+p1<-plot.lm.summ(file_end, dependent, vars, crops, y.min, y.max, x.min, x.max)
+
+#build a 3x2 plot by combining the output for all composition metrics and crops
+    figure1<-ggarrange(p1[[1]] , p1[[2]] + theme( axis.title.y = element_blank()), 
+                       p1[[3]] , p1[[4]] + theme( axis.title.y = element_blank()),
+                       p1[[5]] , p1[[6]] + theme( axis.title.y = element_blank()),
+                       p1[[7]] ,
+                       ncol=2,nrow=4, common.legend = TRUE, legend = "bottom", 
+                       labels="auto",  hjust = c(-3, -1,-3,-1,-3,-3, -3), vjust =c(8,8,8,8,8,8,8), font.label = (size=10)) 
+    figure1
+    
+    #ggsave(paste0(name, ".png"), figure1, width = 5, height = 6)
+ 
+```
+
+
+#### Corn Change in Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_dyield_dSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ # f1<-build.formula.bym.change1.nlnc(independent = 'dSIDI', crop='corn', controls = controls, priors = c("pc"))
+ # m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+ # 
+ model.results.change(name, data=d, crop="corn", diagnostics = TRUE)
+ 
+
+```
+
+#### Soy Change in Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_dyield_dSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ # f1<-build.formula.bym.change1.nlnc(independent = 'dSIDI', crop='soy', controls = controls, priors = c("pc"))
+ # m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="soy", diagnostics = TRUE)
+ 
+       
+
+```
+
+#### Wheat Change in Diversity model with BYM Spatial Effects
+
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_dyield_dSIDI_bym0907'
+controls=c('dVol','dTP','dGDD','dSDD','dfert','dherb')
+
+ # f1<-build.formula.bym.change1.nlnc(independent = 'dSIDI', crop='wheat', controls = controls, priors = c("pc"))
+ # m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+ 
+ model.results.change(name, data=d, crop="wheat", diagnostics = TRUE)
+ 
+      
+```
+
+#### Summary Plot of Non-linear Effects (by crop) for BYM Spatial Effects Models
+
+```{r, fig.height=6, fig.width=5 }
+
+name="dyield_dSIDI_bym0907"
+
+file_end <- "_dSIDI_bym0907" #one of "fe_normncnl0907", "bym_normncnl0907"
+dependent <- "dyield" # one of c("yield" ,"dyield","covyield")
+vars <- c("dSIDI", "dVol","dfert", "dherb","dTP","dGDD","dSDD")
+crops <- c("corn","soy","wheat")
+y.min <- c(-0.3,-0.3,-0.3,-0.3,-0.5,-0.5,-1)
+y.max <- c(0.3,0.3,0.3,0.3,0.5,0.5,1)
+x.min<- -3
+x.max <-3
+
+p1<-plot.lm.summ(file_end, dependent, vars, crops, y.min, y.max, x.min, x.max)
+
+#build a 3x2 plot by combining the output for all composition metrics and crops
+    figure1<-ggarrange(p1[[1]] , p1[[2]] + theme( axis.title.y = element_blank()), 
+                       p1[[3]] , p1[[4]] + theme( axis.title.y = element_blank()),
+                       p1[[5]] , p1[[6]] + theme( axis.title.y = element_blank()),
+                       p1[[7]] ,
+                       ncol=2,nrow=4, common.legend = TRUE, legend = "bottom", 
+                       labels="auto",  hjust = c(-3, -1,-3,-1,-3,-3, -3), vjust =c(8,8,8,8,8,8,8), font.label = (size=10)) 
+    figure1
+    
+    #ggsave(paste0(name, ".png"), figure1, width = 5, height = 6)
+ 
+```
+
+
+
+###  Variation in Yield Models with Average Diversity
+
+#### Corn Average Diversity model with County Fixed Effects
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_covyield_aveSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.fe.cov1.nlnc(independent='aveSIDI3yr', 'corn', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="corn", diagnostics = TRUE)
+
+
+
+```
+
+#### Soy Average Diversity model with County Fixed Effects
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_covyield_aveSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.fe.cov1.nlnc(independent='aveSIDI3yr', 'soy', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="soy", diagnostics = TRUE)
+
+ 
+
+```
+
+#### Wheat Average Diversity model with County Fixed Effects
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_covyield_aveSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.fe.cov1.nlnc(independent='aveSIDI3yr', 'wheat', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="wheat", diagnostics = TRUE)
+
+       
+
+```
+
+#### Summary Plot of Non-linear Effects (by crop) for County Fixed Effects Models
+
+```{r, fig.height=6, fig.width=5 }
+
+name="covyield_aveSIDI_fe0907"
+
+file_end <- "_aveSIDI_fe0907" #one of "fe_normncnl0907", "bym_normncnl0907"
+dependent <- "covyield" # one of c("yield" ,"dyield","covyield")
+vars <- c("aveSIDI3yr", "covVol","covfert", "covherb","covTP","covGDD","covSDD")
+crops <- c("corn","soy","wheat")
+y.min <- c(-0.075,-0.075,-0.05,-0.05,-0.05,-0.05,-0.1)
+y.max <- c(0.075,0.075,0.05,0.05,0.05,0.05,0.1)
+x.min<- -3
+x.max <-3
+
+p1<-plot.lm.summ(file_end, dependent, vars, crops, y.min, y.max, x.min, x.max)
+
+#build a 3x2 plot by combining the output for all composition metrics and crops
+    figure1<-ggarrange(p1[[1]] , p1[[2]] + theme( axis.title.y = element_blank()), 
+                       p1[[3]] , p1[[4]] + theme( axis.title.y = element_blank()),
+                       p1[[5]] , p1[[6]] + theme( axis.title.y = element_blank()),
+                       p1[[7]] ,
+                       ncol=2,nrow=4, common.legend = TRUE, legend = "bottom", 
+                       labels="auto",  hjust = c(-3, -1,-3,-1,-3,-3, -3), vjust =c(7.5,7.5,7.5,7.5,7.5,7.5,7.5), font.label = (size=10)) 
+    figure1
+    
+    #ggsave(paste0(name, ".png"), figure1, width = 5, height = 6)
+ 
+```
+
+#### Corn Average Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_covyield_aveSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.bym.cov1.nlnc(independent='aveSIDI3yr', 'corn', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="corn", diagnostics = TRUE)
+
+      
+```
+
+####  Soy Average Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_covyield_aveSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.bym.cov1.nlnc(independent='aveSIDI3yr', 'soy', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="soy", diagnostics = TRUE)
+
+
+
+
+
+```
+
+#### Wheat Average Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_covyield_aveSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.bym.cov1.nlnc(independent='aveSIDI3yr', 'wheat', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="wheat", diagnostics = TRUE)
+
+       
+```
+
+#### Summary Plot of Non-linear Effects (by crop) for BYM Spatial Effects Models
+
+```{r, fig.height=6, fig.width=5 }
+
+name="covyield_aveSIDI_bym0907"
+
+file_end <- "_aveSIDI_bym0907" #one of "fe_normncnl0907", "bym_normncnl0907"
+dependent <- "covyield" # one of c("yield" ,"dyield","covyield")
+vars <- c("aveSIDI3yr", "covVol","covfert", "covherb","covTP","covGDD","covSDD")
+crops <- c("corn","soy","wheat")
+y.min <- c(-0.05,-0.05,-0.05,-0.05,-0.05,-0.05,-0.1)
+y.max <- c(0.05,0.05,0.05,0.05,0.05,0.05,0.1)
+x.min<- -3
+x.max <-3
+
+
+p1<-plot.lm.summ(file_end, dependent, vars, crops, y.min, y.max, x.min, x.max)
+
+#build a 3x2 plot by combining the output for all composition metrics and crops
+    figure1<-ggarrange(p1[[1]] , p1[[2]] + theme( axis.title.y = element_blank()), 
+                       p1[[3]] , p1[[4]] + theme( axis.title.y = element_blank()),
+                       p1[[5]] , p1[[6]] + theme( axis.title.y = element_blank()),
+                       p1[[7]] ,
+                       ncol=2,nrow=4, common.legend = TRUE, legend = "bottom", 
+                       labels="auto",  hjust = c(-3, -1,-3,-1,-3,-3, -3), vjust =c(7.5,7.5,7.5,7.5,7.5,7.5,7.5), font.label = (size=10)) 
+    figure1
+    
+    #ggsave(paste0(name, ".png"), figure1, width = 5, height = 6)
+ 
+```
+
+
+###  Variation in Yield Models with Coefficient of Variation of Diversity
+
+#### Corn Coefficient of Variation of Diversity model with County Fixed Effects
+
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_covyield_covSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.fe.cov1.nlnc(independent='covSIDI', 'corn', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="corn", diagnostics = TRUE)
+
+      
+
+```
+
+#### Soy Coefficient of Variation of Diversity model with County Fixed Effects
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_covyield_covSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.fe.cov1.nlnc(independent='covSIDI', 'soy', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="soy", diagnostics = TRUE)
+
+      
+```
+
+
+#### Wheat Coefficient of Variation of Diversity model with County Fixed Effects
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_covyield_covSIDI_fe0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.fe.cov1.nlnc(independent='covSIDI', 'wheat', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="wheat", diagnostics = TRUE)
+
+       
+```
+
+
+#### Summary Plot of Non-linear Effects (by crop) for County Fixed Effects Models
+
+```{r, fig.height=6, fig.width=5 }
+
+name="covyield_covSIDI_fe0907"
+
+file_end <- "_covSIDI_fe0907" #one of "fe_normncnl0907", "bym_normncnl0907"
+dependent <- "covyield" # one of c("yield" ,"dyield","covyield")
+vars <- c("covSIDI", "covVol","covfert", "covherb","covTP","covGDD","covSDD")
+crops <- c("corn","soy","wheat")
+y.min <- c(-0.05,-0.05,-0.05,-0.05,-0.05,-0.05,-0.1)
+y.max <- c(0.05,0.05,0.05,0.05,0.05,0.05,0.1)
+x.min<- -3
+x.max <-3
+
+
+p1<-plot.lm.summ(file_end, dependent, vars, crops, y.min, y.max, x.min, x.max)
+
+#build a 3x2 plot by combining the output for all composition metrics and crops
+    figure1<-ggarrange(p1[[1]] , p1[[2]] + theme( axis.title.y = element_blank()), 
+                       p1[[3]] , p1[[4]] + theme( axis.title.y = element_blank()),
+                       p1[[5]] , p1[[6]] + theme( axis.title.y = element_blank()),
+                       p1[[7]] ,
+                       ncol=2,nrow=4, common.legend = TRUE, legend = "bottom", 
+                       labels="auto",  hjust = c(-3, -1,-3,-1,-3,-3, -3), vjust =c(7.5,7.5,7.5,7.5,7.5,7.5,7.5), font.label = (size=10)) 
+    figure1
+    
+    #ggsave(paste0(name, ".png"), figure1, width = 5, height = 6)
+ 
+```
+
+#### Corn Coefficient of Variation of Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='cornKS_0907norm_nc'
+name='corn_covyield_covSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.bym.cov1.nlnc(independent='covSIDI', 'corn', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="corn", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="corn", diagnostics = TRUE)
+
+      
+
+```
+
+#### Soy Coefficient of Variation of Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='soyKS_0907norm_nc'
+name='soy_covyield_covSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+
+# f1<-build.formula.bym.cov1.nlnc(independent='covSIDI', 'soy', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="soy", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="soy", diagnostics = TRUE)
+
+
+```
+
+#### Wheat Coefficient of Variation of Diversity model with BYM Spatial Effects
+
+```{r }
+
+d='wheatKS_0907norm_nc'
+name='wheat_covyield_covSIDI_bym0907'
+controls=c('covVol','covTP','covGDD','covSDD','covfert','covherb')
+# 
+# f1<-build.formula.bym.cov1.nlnc(independent='covSIDI', 'wheat', controls = controls, priors = c("pc"))
+# m1<- run.model(f1, data=d, crop="wheat", priors ="pc", name=name)
+
+model.results.cov(name, data=d, crop="wheat", diagnostics = TRUE)
+
+ 
+
+
+
+```
+
+#### Summary Plot of Non-linear Effects (by crop) for BYM Spatial Effects Models
+
+```{r, fig.height=6, fig.width=5 }
+
+name="covyield_covSIDI_bym0907"
+
+file_end <- "_covSIDI_bym0907" #one of "fe_normncnl0907", "bym_normncnl0907"
+dependent <- "covyield" # one of c("yield" ,"dyield","covyield")
+vars <- c("covSIDI", "covVol","covfert", "covherb","covTP","covGDD","covSDD")
+crops <- c("corn","soy","wheat")
+y.min <- c(-0.05,-0.05,-0.05,-0.05,-0.05,-0.05,-0.1)
+y.max <- c(0.05,0.05,0.05,0.05,0.05,0.05,0.1)
+x.min<- -3
+x.max <-3
+
+
+p1<-plot.lm.summ(file_end, dependent, vars, crops, y.min, y.max, x.min, x.max)
+
+#build a 3x2 plot by combining the output for all composition metrics and crops
+    figure1<-ggarrange(p1[[1]] , p1[[2]] + theme( axis.title.y = element_blank()), 
+                       p1[[3]] , p1[[4]] + theme( axis.title.y = element_blank()),
+                       p1[[5]] , p1[[6]] + theme( axis.title.y = element_blank()),
+                       p1[[7]] ,
+                       ncol=2,nrow=4, common.legend = TRUE, legend = "bottom", 
+                       labels="auto",  hjust = c(-3, -1,-3,-1,-3,-3, -3), vjust =c(7.5,7.5,7.5,7.5,7.5,7.5,7.5), font.label = (size=10)) 
+    figure1
+    
+    #ggsave(paste0(name, ".png"), figure1, width = 5, height = 6)
+ 
+```
+
+
+
+
+
